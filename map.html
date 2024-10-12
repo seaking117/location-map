@@ -7,11 +7,50 @@
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
     <style>
-        body { margin: 0; padding: 0; }
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+        #map { position: absolute; top: 100px; bottom: 0; width: 100%; }
+        #controls {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 10px 20px;
+            border-radius: 5px;
+            z-index: 1;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        #controls input {
+            width: 200px;
+            padding: 5px;
+            margin-right: 10px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        #controls button {
+            padding: 5px 10px;
+            border: none;
+            background-color: #0074D9;
+            color: white;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        #controls button:hover {
+            background-color: #005fa3;
+        }
     </style>
 </head>
 <body>
+    <!-- Controls for User Inputs -->
+    <div id="controls">
+        <input type="number" id="start-lat" placeholder="Starting Latitude">
+        <input type="number" id="start-lon" placeholder="Starting Longitude">
+        <input type="number" id="end-lat" placeholder="Destination Latitude">
+        <input type="number" id="end-lon" placeholder="Destination Longitude">
+        <button id="update-route">Update Route</button>
+    </div>
+
+    <!-- Map Container -->
     <div id="map"></div>
 
     <script>
@@ -20,76 +59,165 @@
         const map = new mapboxgl.Map({
             container: 'map', 
             style: 'mapbox://styles/mapbox/streets-v11', 
-            center: [-73.9712, 40.7831], 
+            center: [-73.9712, 40.7831], // Initial center; will be adjusted after loading GeoJSON
             zoom: 13
         });
 
         map.on('load', () => {
             console.log("Map has loaded.");
 
-            fetch('route.geojson')
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    console.log("GeoJSON data loaded:", data);
+            // Function to load the route from route.geojson
+            function loadRoute() {
+                // Implement cache busting by appending a timestamp
+                const cacheBuster = `timestamp=${new Date().getTime()}`;
 
-                    map.addSource('route', {
-                        'type': 'geojson',
-                        'data': data
-                    });
-
-                    map.addLayer({
-                        'id': 'route-layer',
-                        'type': 'line',
-                        'source': 'route',
-                        'layout': {
-                            'line-join': 'round',
-                            'line-cap': 'round'
-                        },
-                        'paint': {
-                            'line-color': '#ff0000',
-                            'line-width': 4
+                fetch(`route.geojson?${cacheBuster}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
                         }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log("GeoJSON data loaded:", data);
+
+                        // Remove existing route layer and source if they exist
+                        if (map.getLayer('route-layer')) {
+                            map.removeLayer('route-layer');
+                        }
+                        if (map.getSource('route')) {
+                            map.removeSource('route');
+                        }
+
+                        // Add the route as a source and layer
+                        map.addSource('route', {
+                            'type': 'geojson',
+                            'data': data
+                        });
+
+                        map.addLayer({
+                            'id': 'route-layer',
+                            'type': 'line',
+                            'source': 'route',
+                            'layout': {
+                                'line-join': 'round',
+                                'line-cap': 'round'
+                            },
+                            'paint': {
+                                'line-color': '#ff0000',
+                                'line-width': 4
+                            }
+                        });
+
+                        console.log("Route layer added to the map.");
+
+                        // Extract coordinates from the GeoJSON
+                        const geometry = data.features[0].geometry;
+                        let coordinates = [];
+
+                        if (geometry.type === 'LineString') {
+                            coordinates = geometry.coordinates;
+                        } else if (geometry.type === 'MultiLineString') {
+                            geometry.coordinates.forEach(line => {
+                                coordinates = coordinates.concat(line);
+                            });
+                        } else {
+                            throw new Error(`Unsupported geometry type: ${geometry.type}`);
+                        }
+
+                        console.log("Extracted coordinates:", coordinates);
+
+                        // Ensure there are coordinates to work with
+                        if (!coordinates || coordinates.length === 0) {
+                            throw new Error("No coordinates found in GeoJSON.");
+                        }
+
+                        // Start and End coordinates
+                        const startCoord = coordinates[0];
+                        const endCoord = coordinates[coordinates.length - 1];
+
+                        console.log("Start Coordinate:", startCoord);
+                        console.log("End Coordinate:", endCoord);
+
+                        // Add Start Marker with Popup
+                        /*const startPopup = new mapboxgl.Popup({ offset: 25 })
+                            .setText('Start Location');
+
+                        const startMarker = new mapboxgl.Marker({ color: 'green' })
+                            .setLngLat(startCoord)
+                            .setPopup(startPopup)
+                            .addTo(map);
+                        console.log("Start marker added at:", startCoord);
+
+                        // Add End Marker with Popup
+                        const endPopup = new mapboxgl.Popup({ offset: 25 })
+                            .setText('Destination Location');
+
+                        const endMarker = new mapboxgl.Marker({ color: 'red' })
+                            .setLngLat(endCoord)
+                            .setPopup(endPopup)
+                            .addTo(map);
+                        console.log("End marker added at:", endCoord);*/
+
+                        // Adjust map bounds to fit the route
+                        const bounds = coordinates.reduce(function(bounds, coord) {
+                            return bounds.extend(coord);
+                        }, new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]));
+
+                        map.fitBounds(bounds, {
+                            padding: 50
+                        });
+
+                        console.log("Map bounds adjusted to fit the route.");
+                    })
+                    .catch(error => {
+                        console.error("Error loading GeoJSON:", error);
+                        alert("Failed to load the route. Please check the console for details.");
                     });
+            }
 
-                    console.log("Route layer added to the map.");
+            // Initial load of the route
+            loadRoute();
 
-                    const coordinates = data.features[0].geometry.coordinates;
-                    const bounds = coordinates.reduce(function(bounds, coord) {
-                        return bounds.extend(coord);
-                    }, new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]));
+            // Event listener for the Update Route button
+            document.getElementById('update-route').addEventListener('click', () => {
+                const startLat = parseFloat(document.getElementById('start-lat').value.trim());
+                const startLon = parseFloat(document.getElementById('start-lon').value.trim());
+                const endLat = parseFloat(document.getElementById('end-lat').value.trim());
+                const endLon = parseFloat(document.getElementById('end-lon').value.trim());
 
-                    map.fitBounds(bounds, {
-                        padding: 50
-                    });
+                if (isNaN(startLat) || isNaN(startLon) || isNaN(endLat) || isNaN(endLon)) {
+                    alert("Please enter valid latitude and longitude for both start and destination.");
+                    return;
+                }
 
-                    console.log("Map bounds adjusted to fit the route.");
+                // Send the start and end locations to the backend to generate a new route
+                fetch('/generate_route', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        startLat: startLat,
+                        startLon: startLon,
+                        endLat: endLat,
+                        endLon: endLon
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert(`Error: ${data.error}`);
+                    } else {
+                        alert("Route generated successfully. Reloading the map.");
+                        loadRoute();
+                    }
                 })
                 .catch(error => {
-                    console.error("Error loading GeoJSON:", error);
+                    console.error("Error communicating with the server:", error);
+                    alert("Failed to generate route. Please check the console for details.");
                 });
-
-            try {
-                const startMarker = new mapboxgl.Marker({ color: 'green' })
-                    .setLngLat([-73.968285, 40.785091]) 
-                    .addTo(map);
-                console.log("Start marker added.");
-            } catch (error) {
-                console.error("Error adding start marker:", error);
-            }
-
-            try {
-                const endMarker = new mapboxgl.Marker({ color: 'red' })
-                    .setLngLat([-73.985130, 40.758896]) 
-                    .addTo(map);
-                console.log("End marker added.");
-            } catch (error) {
-                console.error("Error adding end marker:", error);
-            }
+            });
         });
 
         map.on('error', (e) => {
