@@ -66,9 +66,9 @@
         map.on('load', () => {
             console.log("Map has loaded.");
 
-            // Function to load the route from route.geojson
+           
             function loadRoute() {
-                // Implement cache busting by appending a timestamp
+                
                 const cacheBuster = `timestamp=${new Date().getTime()}`;
 
                 fetch(`route.geojson?${cacheBuster}`)
@@ -89,7 +89,7 @@
                             map.removeSource('route');
                         }
 
-                        // Add the route as a source and layer
+                        
                         map.addSource('route', {
                             'type': 'geojson',
                             'data': data
@@ -127,19 +127,19 @@
 
                         console.log("Extracted coordinates:", coordinates);
 
-                        // Ensure there are coordinates to work with
+                        // Error checking for coords
                         if (!coordinates || coordinates.length === 0) {
                             throw new Error("No coordinates found in GeoJSON.");
                         }
 
-                        // Start and End coordinates
+                        // Start and End coords
                         const startCoord = coordinates[0];
                         const endCoord = coordinates[coordinates.length - 1];
 
                         console.log("Start Coordinate:", startCoord);
                         console.log("End Coordinate:", endCoord);
 
-                        // Add Start Marker with Popup
+                        // Add Start
                         /*const startPopup = new mapboxgl.Popup({ offset: 25 })
                             .setText('Start Location');
 
@@ -149,7 +149,7 @@
                             .addTo(map);
                         console.log("Start marker added at:", startCoord);
 
-                        // Add End Marker with Popup
+                        // Add End Marker
                         const endPopup = new mapboxgl.Popup({ offset: 25 })
                             .setText('Destination Location');
 
@@ -159,7 +159,7 @@
                             .addTo(map);
                         console.log("End marker added at:", endCoord);*/
 
-                        // Adjust map bounds to fit the route
+                        // Adjust map bounds
                         const bounds = coordinates.reduce(function(bounds, coord) {
                             return bounds.extend(coord);
                         }, new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]));
@@ -179,7 +179,7 @@
             // Initial load of the route
             loadRoute();
 
-            // Event listener for the Update Route button
+           
             document.getElementById('update-route').addEventListener('click', () => {
                 const startLat = parseFloat(document.getElementById('start-lat').value.trim());
                 const startLon = parseFloat(document.getElementById('start-lon').value.trim());
@@ -191,7 +191,7 @@
                     return;
                 }
 
-                // Send the start and end locations to the backend to generate a new route
+                // Send the start and end locations
                 fetch('/generate_route', {
                     method: 'POST',
                     headers: {
