@@ -86,7 +86,6 @@ def returnList(slat1, slat2, elat1, elat2, setLimit):
 
     ne_lat, ne_lon, sw_lat, sw_lon = calculate_bounding_box(start_lat, start_lon, end_lat, end_lon)
 
-    # Initialize an empty list to hold all places
     all_places = []
 
     # Loop over each keyword
@@ -127,16 +126,13 @@ def returnList(slat1, slat2, elat1, elat2, setLimit):
 
     print(f"Total unique places found: {len(places_list)}\n")
 
-    # Convert to DataFrame
     df = pd.DataFrame(places_list)
 
-    # Optionally, reset the index
     df.reset_index(drop=True, inplace=True)
     row_count = len(df)
     for i in range(row_count):
         df.at[i, 'Distance'] = distance(df.iloc[i]['Latitude'], df.iloc[i]['Longitude'], start_lat, start_lon)
     
     df_sorted = df.sort_values(by = 'Distance')
-    # Display the DataFrame
     assign_scenic_scores(df_sorted)
     return df_sorted
